@@ -189,11 +189,12 @@ class LecturePDFConverter:
 
             except yt_dlp.utils.DownloadError as de:
                 err_str = str(de)
-                if "Sign in to confirm you're not a bot" in err_str:
+                err_lower = err_str.lower()
+                if "bot" in err_lower or "sign in" in err_lower or "cookies" in err_lower:
                     raise Exception(
-                        "YouTube bot detection triggered on server IP. "
-                        "To solve this permanently, export your YouTube cookies and add them to Render "
-                        "Environment Variables as 'YOUTUBE_COOKIES'."
+                        "YouTube bot verification triggered on cloud server IP. "
+                        "To fix this, export cookies from your browser and add them in Render Environment "
+                        "as 'YOUTUBE_COOKIES'."
                     )
                 raise Exception(f"YouTube Download Error: {err_str}")
             except Exception as e:
