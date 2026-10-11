@@ -1,0 +1,14 @@
+services:
+  # Option A: All-In-One Unified Docker Web Service (Recommended on Render)
+  # Serves both React frontend & FastAPI backend on a single free/standard instance
+  - type: web
+    name: youtube-lecture-pdf
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: CORS_ORIGINS
+        value: "*"

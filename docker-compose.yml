@@ -1,0 +1,18 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: youtube-lecture-pdf-app:latest
+    container_name: youtube-lecture-pdf-app
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - CORS_ORIGINS=*
+    restart: unless-stopped
+    volumes:
+      - pdf_output:/app/backend/output
+
+volumes:
+  pdf_output:
