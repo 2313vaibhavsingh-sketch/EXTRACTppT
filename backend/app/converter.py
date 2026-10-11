@@ -103,7 +103,6 @@ class LecturePDFConverter:
             raise e
         finally:
             self._cleanup()
-
     def _download_video(self, progress_callback=None) -> Tuple[str, str, float]:
         """Downloads high-definition video stream with concurrent fragments and real-time progress hook."""
         
@@ -128,7 +127,47 @@ class LecturePDFConverter:
             'nocheckcertificate': True,
             'concurrent_fragment_downloads': 5,
             'progress_hooks': [download_progress_hook],
+            # Use mobile/app player clients to bypass YouTube's datacenter bot detection
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'ios', 'mweb', 'web'],
+                }
+            },
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-us,en;q=0.5',
+            },
         }
+
+        # Check for cookies from environment or file (for hosted cloud environments)
+        cookies_file = None
+        env_cookies_b64 = os.environ.get("YOUTUBE_COOKIES_BASE64")
+        env_cookies = os.environ.get("YOUTUBE_COOKIES")
+
+        if env_cookies_b64:
+            import base64
+            try:
+                decoded = base64.b64decode(env_cookies_b64).decode("utf-8")
+                c_path = os.path.join(self.temp_dir, "cookies.txt")
+                with open(c_path, "w", encoding="utf-8") as f:
+                    f.write(decoded)
+                cookies_file = c_path
+            except Exception as e:
+                logger.warning(f"Failed to decode YOUTUBE_COOKIES_BASE64: {e}")
+        elif env_cookies:
+            c_path = os.path.join(self.temp_dir, "cookies.txt")
+            with open(c_path, "w", encoding="utf-8") as f:
+                f.write(env_cookies)
+            cookies_file = c_path
+        else:
+            base_cookies = os.path.join(os.path.dirname(os.path.dirname(self.temp_dir)), "cookies.txt")
+            if os.path.isfile(base_cookies):
+                cookies_file = base_cookies
+
+        if cookies_file:
+            ydl_opts['cookiefile'] = cookies_file
+            logger.info("Using YouTube cookie file for authenticated extraction.")
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             try:
@@ -149,7 +188,14 @@ class LecturePDFConverter:
                 return downloaded_files[0], title, float(duration)
 
             except yt_dlp.utils.DownloadError as de:
-                raise Exception(f"YouTube Download Error: {str(de)}")
+                err_str = str(de)
+                if "Sign in to confirm you're not a bot" in err_str:
+                    raise Exception(
+                        "YouTube bot detection triggered on server IP. "
+                        "To solve this permanently, export your YouTube cookies and add them to Render "
+                        "Environment Variables as 'YOUTUBE_COOKIES'."
+                    )
+                raise Exception(f"YouTube Download Error: {err_str}")
             except Exception as e:
                 raise Exception(f"Error extracting video metadata: {str(e)}")
 
